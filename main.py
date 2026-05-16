@@ -168,6 +168,70 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.info("Admin rejected number: %s", data["phone"])
 
 
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.message or update.channel_post
+    if not message or not message.contact:
+        return
+
+    contact = message.contact
+    phone = contact.phone_number
+    if not phone:
+        return
+
+    # Ensure phone starts with +
+    if not phone.startswith("+"):
+        phone = "+" + phone
+
+    admin_id = int(os.environ["ADMIN_TELEGRAM_ID"])
+    sender = message.from_user
+    sender_name = (
+        f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+        if sender
+        else "Unknown"
+    )
+    username = f"@{sender.username}" if sender and sender.username else "—"
+    chat_name = message.chat.title or message.chat.username or str(message.chat.id)
+    timestamp = datetime.utcnow().strftime("%d.%m.%Y")
+
+    # Contact owner name
+    contact_name = f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "—"
+
+    callback_id = str(uuid.uuid4())[:8]
+    pending[callback_id] = {
+        "phone": phone,
+        "sender_name": sender_name,
+        "username": username,
+        "chat_name": chat_name,
+        "message": f"[Контакт] {contact_name}: {phone}",
+        "timestamp": timestamp,
+    }
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Подтвердить", callback_data=f"confirm:{callback_id}"),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f"reject:{callback_id}"),
+        ]
+    ])
+
+    text = (
+        f"📱 *Получен контакт*\n\n"
+        f"*Номер:* `{phone}`\n"
+        f"*Имя контакта:* {contact_name}\n"
+        f"*Отправитель:* {sender_name} ({username})\n"
+        f"*Группа:* {chat_name}\n"
+        f"*Дата:* {timestamp}\n\n"
+        f"Добавить этот номер в таблицу?"
+    )
+
+    await context.bot.send_message(
+        chat_id=admin_id,
+        text=text,
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+    logger.info("Received contact from %s in '%s': %s", sender_name, chat_name, phone)
+
+
 def main() -> None:
     token = os.environ["TELEGRAM_BOT_TOKEN"]
 
@@ -175,6 +239,9 @@ def main() -> None:
 
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+    )
+    application.add_handler(
+        MessageHandler(filters.CONTACT, handle_contact)
     )
     application.add_handler(CallbackQueryHandler(handle_callback))
 
