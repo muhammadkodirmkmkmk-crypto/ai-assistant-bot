@@ -245,8 +245,16 @@ def main() -> None:
     )
     application.add_handler(CallbackQueryHandler(handle_callback))
 
-    logger.info("Bot started. Waiting for phone numbers to confirm...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    logger.info("Bot started. Waiting for phone numbers and contacts to confirm...")
+    # Explicitly list update types so Railway/webhook mode also receives contacts
+    application.run_polling(
+        allowed_updates=[
+            "message",
+            "channel_post",
+            "callback_query",
+        ],
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == "__main__":
