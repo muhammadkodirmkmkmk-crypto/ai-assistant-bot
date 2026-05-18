@@ -79,12 +79,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     admin_id = int(os.environ["ADMIN_TELEGRAM_ID"])
     sender = message.from_user
-    sender_name = (
-        f"{sender.first_name or ''} {sender.last_name or ''}".strip()
-        if sender
-        else "Unknown"
-    )
-    username = f"@{sender.username}" if sender and sender.username else "—"
+    if sender:
+        sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or "Unknown"
+        username = f"@{sender.username}" if sender.username else "—"
+    else:
+        sender_name = (message.sender_chat.title if message.sender_chat else "Unknown")
+        username = "—"
     chat_name = message.chat.title or message.chat.username or str(message.chat.id)
     timestamp = datetime.utcnow().strftime("%d.%m.%Y")
 
@@ -207,12 +207,12 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     admin_id = int(os.environ["ADMIN_TELEGRAM_ID"])
     sender = message.from_user
-    sender_name = (
-        f"{sender.first_name or ''} {sender.last_name or ''}".strip()
-        if sender
-        else "Unknown"
-    )
-    username = f"@{sender.username}" if sender and sender.username else "—"
+    if sender:
+        sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip() or "Unknown"
+        username = f"@{sender.username}" if sender.username else "—"
+    else:
+        sender_name = (message.sender_chat.title if message.sender_chat else "Unknown")
+        username = "—"
     chat_name = message.chat.title or message.chat.username or str(message.chat.id)
     timestamp = datetime.utcnow().strftime("%d.%m.%Y")
 
@@ -273,14 +273,8 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(handle_callback))
 
     logger.info("Bot started. Waiting for phone numbers and contacts to confirm...")
-    # Explicitly list update types so Railway/webhook mode also receives contacts
     application.run_polling(
-        allowed_updates=[
-            "message",
-            "channel_post",
-            "callback_query",
-        ],
-        drop_pending_updates=True,
+        drop_pending_updates=False,
     )
 
 
