@@ -170,13 +170,34 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.info("Admin rejected number: %s", data["phone"])
 
 
+async def debug_all_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log every incoming update for diagnostics."""
+    msg = update.message or update.channel_post
+    if msg:
+        chat_type = msg.chat.type
+        content_types = []
+        if msg.text:
+            content_types.append(f"text={msg.text[:50]!r}")
+        if msg.contact:
+            content_types.append(f"contact={msg.contact.phone_number}")
+        if not content_types:
+            content_types.append(f"type={msg.content_type}")
+        logger.info(
+            "[DEBUG] Update from chat_type=%s chat_id=%s: %s",
+            chat_type, msg.chat.id, ", ".join(content_types),
+        )
+
+
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message or update.channel_post
+    logger.info("[CONTACT] handle_contact called. message=%s", bool(message))
     if not message or not message.contact:
+        logger.info("[CONTACT] No contact in message, skipping.")
         return
 
     contact = message.contact
     phone = contact.phone_number
+    logger.info("[CONTACT] Phone from contact: %s", phone)
     if not phone:
         return
 
@@ -239,11 +260,15 @@ def main() -> None:
 
     application = Application.builder().token(token).build()
 
+    # Debug handler: logs every message (runs first, does not block other handlers)
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        MessageHandler(filters.ALL, debug_all_updates), group=0
     )
     application.add_handler(
-        MessageHandler(filters.CONTACT, handle_contact)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message), group=1
+    )
+    application.add_handler(
+        MessageHandler(filters.CONTACT, handle_contact), group=1
     )
     application.add_handler(CallbackQueryHandler(handle_callback))
 
