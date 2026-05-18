@@ -171,21 +171,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def debug_all_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log every incoming update for diagnostics."""
-    msg = update.message or update.channel_post
-    if msg:
-        chat_type = msg.chat.type
-        content_types = []
-        if msg.text:
-            content_types.append(f"text={msg.text[:50]!r}")
-        if msg.contact:
-            content_types.append(f"contact={msg.contact.phone_number}")
-        if not content_types:
-            content_types.append(f"type={msg.content_type}")
-        logger.info(
-            "[DEBUG] Update from chat_type=%s chat_id=%s: %s",
-            chat_type, msg.chat.id, ", ".join(content_types),
-        )
+    """Log every incoming update as raw dict for full diagnostics."""
+    try:
+        logger.info("[RAW UPDATE] %s", json.dumps(update.to_dict(), ensure_ascii=False))
+    except Exception as e:
+        logger.info("[RAW UPDATE] failed to serialize: %s", e)
 
 
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
