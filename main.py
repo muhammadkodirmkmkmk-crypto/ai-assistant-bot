@@ -291,20 +291,45 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 @flask_app.route("/webhook", methods=["POST"])
 def webhook():
+    logger.info("=== WEBHOOK HIT === method=%s path=%s", request.method, request.path)
+    logger.info("Headers: %s", dict(request.headers))
+
+    raw = request.get_data(as_text=True)
+    logger.info("Raw body (%d bytes): %s", len(raw), raw[:2000])
+
     if ptb_app is None or bot_loop is None:
+        logger.error("Bot not ready yet")
         return jsonify({"error": "bot not ready"}), 503
-    data = request.get_json(force=True, silent=True)
+
+    try:
+        data = json.loads(raw) if raw else None
+    except Exception as e:
+        logger.error("JSON parse error: %s", e)
+        return jsonify({"error": "invalid json"}), 400
+
     if not data:
+        logger.warning("Empty body received")
         return jsonify({"error": "empty body"}), 400
+
+    logger.info("Update type keys: %s", list(data.keys()))
+
     try:
         update = Update.de_json(data, ptb_app.bot)
+        logger.info("Parsed update_id=%s effective_chat=%s", update.update_id,
+                    update.effective_chat.id if update.effective_chat else "None")
+        if update.message:
+            logger.info("Message content_type=%s has_contact=%s text=%r",
+                        update.message.content_type,
+                        bool(update.message.contact),
+                        update.message.text)
         future = asyncio.run_coroutine_threadsafe(
             ptb_app.process_update(update), bot_loop
         )
         future.result(timeout=30)
     except Exception as e:
-        logger.error("Update processing error: %s", e)
+        logger.error("Update processing error: %s", e, exc_info=True)
         return jsonify({"error": str(e)}), 500
+
     return jsonify({"ok": True})
 
 
