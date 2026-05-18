@@ -3,6 +3,7 @@ import re
 import json
 import uuid
 import logging
+import asyncio
 from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -138,15 +139,16 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if action == "confirm":
         try:
-            client = get_sheets_client()
-            sheet = get_or_create_sheet(client)
-            # Insert new row at row 6, pushing existing data down
-            # Columns: A="", B=date, C="", D=phone
-            sheet.insert_row(
-                ["", data["timestamp"], "", data["phone"]],
-                index=6,
-                value_input_option="USER_ENTERED",
-            )
+            def write_to_sheet():
+                client = get_sheets_client()
+                sheet = get_or_create_sheet(client)
+                sheet.insert_row(
+                    ["", data["timestamp"], "", data["phone"]],
+                    index=6,
+                    value_input_option="USER_ENTERED",
+                )
+
+            await asyncio.to_thread(write_to_sheet)
             await query.edit_message_text(
                 f"✅ *Номер сохранён в таблицу*\n\n"
                 f"📱 `{data['phone']}`\n"
